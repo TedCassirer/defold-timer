@@ -21,6 +21,7 @@ struct Listener {
 struct Timer {
   double seconds;
   double end;
+  int repeating;
   unsigned int id;
   Listener listener;
 };
@@ -55,21 +56,42 @@ static double GetTimestamp() {
   return (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000;
 }
 
-static int Seconds(lua_State* L) {
-  int top = lua_gettop(L);
-
-  double seconds = luaL_checknumber(L, 1);
-
+static Timer* CreateTimer(Listener listener, double seconds, int repeating) {
   Timer *timer = (Timer*)malloc(sizeof(Timer));
-  timer->listener = CreateListener(L, 2);
   timer->seconds = seconds;
   timer->id = sequenceId++;
+  timer->listener = listener;
+  timer->repeating = repeating;
   timer->end = GetTimestamp() + seconds * 1000.0f;
 
   if (timers.Full()) {
     timers.SetCapacity(timers.Capacity() + TIMERS_CAPACITY);
   }
   timers.Push(timer);
+  return timer;
+}
+
+static int Seconds(lua_State* L) {
+  int top = lua_gettop(L);
+
+  const double seconds = luaL_checknumber(L, 1);
+  const Listener listener = CreateListener(L, 2);
+
+  Timer *timer = CreateTimer(listener, seconds, 0);
+
+  lua_pushinteger(L, timer->id);
+
+  assert(top + 1 == lua_gettop(L));
+  return 1;
+}
+
+static int Repeating(lua_State* L) {
+  int top = lua_gettop(L);
+
+  const double seconds = luaL_checknumber(L, 1);
+  const Listener listener = CreateListener(L, 2);
+
+  Timer *timer = CreateTimer(listener, seconds, 1);
 
   lua_pushinteger(L, timer->id);
 
@@ -94,10 +116,25 @@ static int Cancel(lua_State* L) {
   return 0;
 }
 
+
+static int CancelAll(lua_State* L) {
+  int top = lua_gettop(L);
+
+  for (int i = timers.Size() - 1; i >= 0; i--) {
+    Timer* timer = timers[i];
+    timers.EraseSwap(i);
+    free(timer);
+  }
+  assert(top + 0 == lua_gettop(L));
+  return 0;
+}
+
 // Functions exposed to Lua
 static const luaL_reg Module_methods[] = {
   { "seconds", Seconds },
+  { "repeating", Repeating },
   { "cancel", Cancel },
+  { "cancel_all", CancelAll },
   { 0, 0 }
 };
 
@@ -143,14 +180,18 @@ dmExtension::Result UpdateExtension(dmExtension::Params* params) {
         lua_pushinteger(L, timer->id);
         int ret = lua_pcall(L, 2, LUA_MULTRET, 0);
         if (ret != 0) {
-            dmLogError("Error running timer callback: %s", lua_tostring(L, -1));
-            lua_pop(L, 1);
+          dmLogError("Error running timer callback: %s", lua_tostring(L, -1));
+          lua_pop(L, 1);
         }
       }
       assert(top == lua_gettop(L));
 
-      timers.EraseSwap(i);
-      free(timer);
+      if (timer->repeating == 1) {
+        timer->end += timer->seconds * 1000.0f;
+      } else {
+        timers.EraseSwap(i);
+        free(timer);
+      }
     }
   }
   return dmExtension::RESULT_OK;
