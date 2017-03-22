@@ -50,3 +50,6 @@ app_icon_144x144 =
 app_icon_192x192 = 
 package = com.britzl.timer
 
+[library]
+include_dirs = timer
+
