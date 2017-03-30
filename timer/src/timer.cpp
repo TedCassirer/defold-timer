@@ -147,21 +147,21 @@ static void LuaInit(lua_State* L) {
   assert(top == lua_gettop(L));
 }
 
-dmExtension::Result AppInitializeExtension(dmExtension::AppParams* params) {
+dmExtension::Result AppInitializeTimerExtension(dmExtension::AppParams* params) {
   return dmExtension::RESULT_OK;
 }
 
-dmExtension::Result InitializeExtension(dmExtension::Params* params) {
+dmExtension::Result InitializeTimerExtension(dmExtension::Params* params) {
   LuaInit(params->m_L);
   printf("Registered %s Extension\n", MODULE_NAME);
   return dmExtension::RESULT_OK;
 }
 
-dmExtension::Result AppFinalizeExtension(dmExtension::AppParams* params) {
+dmExtension::Result AppFinalizeTimerExtension(dmExtension::AppParams* params) {
   return dmExtension::RESULT_OK;
 }
 
-dmExtension::Result UpdateExtension(dmExtension::Params* params) {
+dmExtension::Result UpdateTimerExtension(dmExtension::Params* params) {
   const double now = GetTimestamp();
   int i = 0;
   for (int i = timers.Size() - 1; i >= 0; i--) {
@@ -197,7 +197,7 @@ dmExtension::Result UpdateExtension(dmExtension::Params* params) {
   return dmExtension::RESULT_OK;
 }
 
-dmExtension::Result FinalizeExtension(dmExtension::Params* params) {
+dmExtension::Result FinalizeTimerExtension(dmExtension::Params* params) {
   return dmExtension::RESULT_OK;
 }
 
@@ -206,4 +206,4 @@ dmExtension::Result FinalizeExtension(dmExtension::Params* params) {
 //
 // DM_DECLARE_EXTENSION(symbol, name, app_init, app_final, init, update, on_event, final)
 
-DM_DECLARE_EXTENSION(Timer, LIB_NAME, AppInitializeExtension, AppFinalizeExtension, InitializeExtension, UpdateExtension, 0, FinalizeExtension)
+DM_DECLARE_EXTENSION(Timer, LIB_NAME, AppInitializeTimerExtension, AppFinalizeTimerExtension, InitializeTimerExtension, UpdateTimerExtension, 0, FinalizeTimerExtension)
