@@ -5,7 +5,6 @@
 
 // include the Defold SDK
 #include <dmsdk/sdk.h>
-#include <sys/time.h>
 
 struct Listener {
 	Listener() {
@@ -50,14 +49,27 @@ static Listener CreateListener(lua_State* L, int index) {
 	return listener;
 }
 
-/**
- * Get a timestamp in milliseconds
- */
-static double GetTimestamp() {
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	return (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000;
+#ifdef DM_PLATFORM_WINDOWS
+#include <windows.h>
+// Timestamp calculation from luasocket timeout.c
+static double GetTimestamp(void) {
+	FILETIME ft;
+	double t;
+	GetSystemTimeAsFileTime(&ft);
+	/* Windows file time (time since January 1, 1601 (UTC)) */
+	t  = ft.dwLowDateTime/1.0e7 + ft.dwHighDateTime*(4294967296.0/1.0e7);
+	/* convert to Unix Epoch time (time since January 1, 1970 (UTC)) */
+	return (t - 11644473600.0);
 }
+#else
+#include <sys/time.h>
+static double GetTimestamp(void) {
+	struct timeval v;
+	gettimeofday(&v, (struct timezone *) NULL);
+	/* Unix Epoch time (time since January 1, 1970 (UTC)) */
+	return v.tv_sec + v.tv_usec/1.0e6;
+}
+#endif
 
 /**
  * Create a new timer
@@ -68,7 +80,7 @@ static Timer* CreateTimer(Listener listener, double seconds, int repeating) {
 	timer->id = g_SequenceId++;
 	timer->listener = listener;
 	timer->repeating = repeating;
-	timer->end = GetTimestamp() + seconds * 1000.0f;
+	timer->end = GetTimestamp() + seconds;
 
 	if (g_Timers.Full()) {
 		g_Timers.SetCapacity(g_Timers.Capacity() + TIMERS_CAPACITY);
@@ -241,7 +253,7 @@ dmExtension::Result UpdateTimerExtension(dmExtension::Params* params) {
 			g_TimersToTrigger.Push(timer->id);
 
 			if (timer->repeating == 1) {
-				timer->end += timer->seconds * 1000.0f;
+				timer->end += timer->seconds;
 			} else {
 				if (g_TimersToRemove.Full()) {
 					g_TimersToRemove.SetCapacity(g_TimersToRemove.Capacity() + TIMERS_CAPACITY);
