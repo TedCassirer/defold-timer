@@ -5,6 +5,7 @@
 
 // include the Defold SDK
 #include <dmsdk/sdk.h>
+#include <stdlib.h>
 
 struct Listener {
 	Listener() {
